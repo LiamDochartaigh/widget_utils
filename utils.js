@@ -191,6 +191,3 @@ async function createDataStore({ defaultData, pagifiedDataKeys, storeKey, pageLe
     resetDataStore
   };
 }
-export {
-  utils_default as default
-};
