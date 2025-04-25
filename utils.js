@@ -3,14 +3,35 @@
     generateRandomHexId,
     hexToRgb,
     awaitAnimFrame,
-    createDataStore
+    createDataStore,
+    createAssetManager,
+    createQueue
   };
   var utils_default = {
     generateRandomHexId,
     hexToRgb,
     awaitAnimFrame,
-    createDataStore
+    createDataStore,
+    createAssetManager,
+    createQueue
   };
+  function createQueue() {
+    const queue = [];
+    async function addToQueue(queueFunc) {
+      if (queue.length > 0) {
+        queue.push(queueFunc);
+        return;
+      }
+      queue.push(queueFunc);
+      while (queue.length > 0) {
+        await queueFunc;
+        queue.shift();
+      }
+    }
+    return {
+      addToQueue
+    };
+  }
   function generateRandomHexId(length = 8) {
     return Array.from(
       { length },
@@ -190,6 +211,29 @@
       getPagifiedData,
       saveData,
       resetDataStore
+    };
+  }
+  async function createAssetManager(assets) {
+    const assetManager = /* @__PURE__ */ new Map();
+    const loadPromises = [];
+    Object.entries(assets).forEach(([key, url]) => {
+      const loadPromise = new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          assetManager.set(key, img);
+          resolve();
+        };
+        img.onerror = () => {
+          console.error(`Failed to load image: ${url}`);
+          reject(new Error(`Failed to load image: ${url}`));
+        };
+        img.src = url;
+      });
+      loadPromises.push(loadPromise);
+    });
+    await Promise.all(loadPromises);
+    return {
+      get: (key) => assetManager.get(key)
     };
   }
 })();
