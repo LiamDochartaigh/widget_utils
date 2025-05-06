@@ -77,6 +77,7 @@
         return getDefaultData();
       } else {
         const pagifiedDataConcat = {};
+        console.log(savedData.pagifiedDataStores);
         for (const [index, _] of Object.entries(savedData.pagifiedDataStores).entries()) {
           const pages = savedData.pagifiedDataStores[pagifiedDataKeys[index]];
           let combinedPages = {};
