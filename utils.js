@@ -72,28 +72,44 @@
       data: { ...defaultData },
       keys: pagifiedDataKeys
     };
+    const verifySavedData = (savedData) => {
+      const defaultData2 = {
+        pagifiedDataStores: {},
+        data: {}
+      };
+      for (let index = 0; index < Object.keys(defaultData2).length; index++) {
+        const key = Object.keys(defaultData2)[index];
+        if (!savedData[key]) {
+          console.log(`Key mismatch, using default data for ${key}`);
+          return false;
+        }
+      }
+      return true;
+    };
     const _loadData = async (savedData) => {
       if (!savedData) {
         return getDefaultData();
-      } else {
-        const pagifiedDataConcat = {};
-        console.log(savedData.pagifiedDataStores);
-        for (const [index, _] of Object.entries(savedData.pagifiedDataStores).entries()) {
-          const pages = savedData.pagifiedDataStores[pagifiedDataKeys[index]];
-          let combinedPages = {};
-          const pagePromises = pages.map(async (key) => {
-            const value = JSON.parse((await SE_API.store.get(key)).value);
-            return [key, value];
-          });
-          const entries = await Promise.all(pagePromises);
-          combinedPages = Object.fromEntries(entries);
-          pagifiedDataConcat[pagifiedDataKeys[index]] = combinedPages;
-        }
-        return {
-          flatData: savedData.data,
-          pagifiedDataStores: pagifiedDataConcat
-        };
       }
+      if (!verifySavedData(savedData)) {
+        return getDefaultData();
+      }
+      console.log("Valid Data Retrieved", savedData);
+      const pagifiedDataConcat = {};
+      for (const [index, _] of Object.entries(savedData.pagifiedDataStores).entries()) {
+        const pages = savedData.pagifiedDataStores[pagifiedDataKeys[index]];
+        let combinedPages = {};
+        const pagePromises = pages.map(async (key) => {
+          const value = JSON.parse((await SE_API.store.get(key)).value);
+          return [key, value];
+        });
+        const entries = await Promise.all(pagePromises);
+        combinedPages = Object.fromEntries(entries);
+        pagifiedDataConcat[pagifiedDataKeys[index]] = combinedPages;
+      }
+      return {
+        flatData: savedData.data,
+        pagifiedDataStores: pagifiedDataConcat
+      };
     };
     const getDefaultData = () => {
       return {
