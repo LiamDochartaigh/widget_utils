@@ -24,7 +24,7 @@
       }
       queue.push(queueFunc);
       while (queue.length > 0) {
-        await queueFunc;
+        await queue[0]();
         queue.shift();
       }
     }
@@ -72,14 +72,13 @@
       data: { ...defaultData },
       keys: pagifiedDataKeys
     };
-    const saved = JSON.parse((await SE_API.store.get(storeKey)).value);
-    const loadData = async () => {
-      if (!saved) {
+    const _loadData = async (savedData) => {
+      if (!savedData) {
         return getDefaultData();
       } else {
         const pagifiedDataConcat = {};
-        for (const [index, _] of Object.entries(saved.pagifiedDataStores).entries()) {
-          const pages = saved.pagifiedDataStores[pagifiedDataKeys[index]];
+        for (const [index, _] of Object.entries(savedData.pagifiedDataStores).entries()) {
+          const pages = savedData.pagifiedDataStores[pagifiedDataKeys[index]];
           let combinedPages = {};
           const pagePromises = pages.map(async (key) => {
             const value = JSON.parse((await SE_API.store.get(key)).value);
@@ -90,7 +89,7 @@
           pagifiedDataConcat[pagifiedDataKeys[index]] = combinedPages;
         }
         return {
-          flatData: saved.data,
+          flatData: savedData.data,
           pagifiedDataStores: pagifiedDataConcat
         };
       }
@@ -203,14 +202,19 @@
       });
       return combinedData;
     };
-    state.localData = await loadData();
+    state.localData = await _loadData(JSON.parse((await SE_API.store.get(storeKey)).value));
     return {
-      data: state.localData,
+      get data() {
+        return state.localData;
+      },
       updatePagifiedValue,
       getPagifiedValue,
       getPagifiedData,
       saveData,
-      resetDataStore
+      resetDataStore,
+      loadData: async (data) => {
+        state.localData = await _loadData(data);
+      }
     };
   }
   async function createAssetManager(assets) {
@@ -233,7 +237,8 @@
     });
     await Promise.all(loadPromises);
     return {
-      get: (key) => assetManager.get(key)
+      get: (key) => assetManager.get(key),
+      assets: Array.from(assetManager.entries())
     };
   }
 })();
