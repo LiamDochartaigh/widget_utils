@@ -5,7 +5,9 @@
     awaitAnimFrame,
     createDataStore,
     createAssetManager,
-    createQueue
+    createQueue,
+    isCommand,
+    isMsgFromAdmin
   };
   var utils_default = {
     generateRandomHexId,
@@ -13,7 +15,9 @@
     awaitAnimFrame,
     createDataStore,
     createAssetManager,
-    createQueue
+    createQueue,
+    isCommand,
+    isMsgFromAdmin
   };
   function createQueue() {
     const queue = [];
@@ -93,7 +97,7 @@
       if (!verifySavedData(savedData)) {
         return getDefaultData();
       }
-      console.log("Valid Data Retrieved", savedData);
+      console.log("Widget Data Loaded from SE_API Store");
       const pagifiedDataConcat = {};
       for (const [index, _] of Object.entries(savedData.pagifiedDataStores).entries()) {
         const pages = savedData.pagifiedDataStores[pagifiedDataKeys[index]];
@@ -257,5 +261,36 @@
       get: (key) => assetManager.get(key),
       assets: Array.from(assetManager.entries())
     };
+  }
+  function isCommand(value, expectedCommand) {
+    if (!expectedCommand.startsWith("!")) {
+      return false;
+    }
+    const firstWord = value.split(" ")[0].toLowerCase();
+    return firstWord === expectedCommand.toLowerCase();
+  }
+  function isMsgFromAdmin(obj, {
+    viewerControl,
+    vipControl,
+    subControl,
+    modControl,
+    modWhitelist
+  }) {
+    if (obj.event.data.channel === obj.event.data.displayName)
+      return true;
+    if (viewerControl)
+      return true;
+    if (vipControl && obj.event.data.badges?.map((badge) => badge.type).includes("vip"))
+      return true;
+    if (subControl && (obj.event.data.tags.subscriber === "0" ? false : true))
+      return true;
+    if (modControl) {
+      const isChannelMod = obj.event.data.tags.mod === "0" ? false : true;
+      if ((modWhitelist == void 0 || modWhitelist == null) && isChannelMod)
+        return true;
+      if (modWhitelist && isChannelMod && modWhitelist.split(",").map((mod) => mod.trim()).some((mod) => mod.trim().toLowerCase() === obj.event.data.displayName.toLowerCase()))
+        return true;
+    }
+    return false;
   }
 })();
