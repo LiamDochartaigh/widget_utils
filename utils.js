@@ -7,7 +7,8 @@
     createAssetManager,
     createQueue,
     isCommand,
-    isMsgFromAdmin
+    isMsgFromAdmin,
+    throttle
   };
   var utils_default = {
     generateRandomHexId,
@@ -17,7 +18,8 @@
     createAssetManager,
     createQueue,
     isCommand,
-    isMsgFromAdmin
+    isMsgFromAdmin,
+    throttle
   };
   function createQueue() {
     const queue = [];
@@ -238,14 +240,23 @@
       }
     };
   }
-  async function createAssetManager(assets) {
-    const assetManager = /* @__PURE__ */ new Map();
+  const defaultAssetManageOpts = {
+    audioPoolSize: 5,
+    preLoadAudio: true
+  };
+  async function createAssetManager(imageAssets, audioAssets, opts = {}) {
+    const defaultOpts = {
+      ...defaultAssetManageOpts,
+      ...opts
+    };
+    const imgAssetManager = /* @__PURE__ */ new Map();
+    const audioAssetManager = /* @__PURE__ */ new Map();
     const loadPromises = [];
-    Object.entries(assets).forEach(([key, url]) => {
+    Object.entries(imageAssets).forEach(([key, url]) => {
       const loadPromise = new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => {
-          assetManager.set(key, img);
+          imgAssetManager.set(key, img);
           resolve();
         };
         img.onerror = () => {
@@ -256,11 +267,51 @@
       });
       loadPromises.push(loadPromise);
     });
+    if (audioAssets && defaultOpts.preLoadAudio) {
+      Object.entries(audioAssets).forEach(([key, url]) => {
+        const loadPromise = new Promise(async (resolve, reject) => {
+          const audioPool = await createAudioPool(url, defaultOpts.audioPoolSize);
+          audioAssetManager.set(key, audioPool);
+          resolve();
+        });
+        loadPromises.push(loadPromise);
+      });
+    }
     await Promise.all(loadPromises);
     return {
-      get: (key) => assetManager.get(key),
-      assets: Array.from(assetManager.entries())
+      getImageAsset: (key) => imgAssetManager.get(key),
+      imageAssets: Array.from(imgAssetManager.entries()),
+      getAudioPool: (key) => audioAssetManager.get(key),
+      audioAssets: Array.from(audioAssetManager.entries())
     };
+  }
+  function createAudioPool(url, poolSize) {
+    return new Promise((resolve, reject) => {
+      let currentIndex = 0;
+      const pool = [];
+      const play = (volume) => {
+        const audioToPlay = pool[currentIndex];
+        audioToPlay.currentTime = 0;
+        audioToPlay.volume = volume;
+        audioToPlay.play();
+        currentIndex = (currentIndex + 1) % poolSize;
+      };
+      let loaded = 0;
+      for (let i = 0; i < poolSize; i++) {
+        const audio = new Audio(url);
+        audio.oncanplaythrough = () => {
+          loaded++;
+          if (loaded === poolSize) {
+            resolve({
+              play,
+              pool
+            });
+          }
+        };
+        audio.load();
+        pool.push(audio);
+      }
+    });
   }
   function isCommand(value, expectedCommand) {
     if (!expectedCommand.startsWith("!")) {
@@ -292,5 +343,15 @@
         return true;
     }
     return false;
+  }
+  function throttle(callback, delay) {
+    let lastCall = 0;
+    return function() {
+      const now = Date.now();
+      if (now - lastCall >= delay) {
+        lastCall = now;
+        callback();
+      }
+    };
   }
 })();
