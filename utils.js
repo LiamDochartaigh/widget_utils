@@ -225,14 +225,6 @@
       });
       return combinedData;
     };
-    try {
-      console.log(`Getting SE store key: ${storeKey}`);
-      await SE_API.store.get(storeKey);
-      console.log(`Not caught here`);
-    } catch (e) {
-      console.error(`Error getting SE store key: ${storeKey}`, e);
-      await resetDataStore();
-    }
     const currentSavedData = await SE_API.store.get(storeKey);
     if (!currentSavedData) {
       state.localData = await _loadData(null);
