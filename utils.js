@@ -128,7 +128,7 @@
         }
       };
     };
-    const resetDataStore = async (test) => {
+    const resetDataStore = async () => {
       const savePromises = [];
       Object.keys(state.localData.pagifiedDataStores).forEach((_, index) => {
         const pageDataKey = pagifiedDataKeys[index];
@@ -225,6 +225,12 @@
       });
       return combinedData;
     };
+    try {
+      await SE_API.store.get(storeKey);
+    } catch (e) {
+      console.error(`Error getting SE store key: ${storeKey}`, e);
+      await resetDataStore();
+    }
     state.localData = await _loadData(JSON.parse((await SE_API.store.get(storeKey)).value));
     return {
       get data() {
