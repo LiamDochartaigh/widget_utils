@@ -105,7 +105,7 @@
         const pages = savedData.pagifiedDataStores[pagifiedDataKeys[index]];
         let combinedPages = {};
         const pagePromises = pages.map(async (key) => {
-          const value = JSON.parse((await SE_API.store.get(key)).value);
+          const value = JSON.parse((await SE_API.store.get(key))?.value);
           return [key, value];
         });
         const entries = await Promise.all(pagePromises);
@@ -226,12 +226,19 @@
       return combinedData;
     };
     try {
+      console.log(`Getting SE store key: ${storeKey}`);
       await SE_API.store.get(storeKey);
+      console.log(`Not caught here`);
     } catch (e) {
       console.error(`Error getting SE store key: ${storeKey}`, e);
       await resetDataStore();
     }
-    state.localData = await _loadData(JSON.parse((await SE_API.store.get(storeKey)).value));
+    const currentSavedData = await SE_API.store.get(storeKey);
+    if (!currentSavedData) {
+      state.localData = await _loadData(null);
+    } else {
+      state.localData = await _loadData(JSON.parse(currentSavedData.value));
+    }
     return {
       get data() {
         return state.localData;
