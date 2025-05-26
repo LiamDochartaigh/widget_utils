@@ -3,23 +3,47 @@
     generateRandomHexId,
     hexToRgb,
     awaitAnimFrame,
+    throttle,
+    awaitDelay,
+    awaitWhileLoop,
     createDataStore,
-    createAssetManager,
     createQueue,
+    createAssetManager,
+    loadImage,
+    loadAudio,
+    replaceTextPlaceholders,
+    // Twitch Utils
+    formatChannelPoints,
     isCommand,
     isMsgFromAdmin,
-    throttle
+    // Animations
+    shakeAnimConfig,
+    overshootAnimConfig,
+    countdownTimerAnim,
+    textCharAnimConfig
   };
   var utils_default = {
     generateRandomHexId,
     hexToRgb,
     awaitAnimFrame,
+    throttle,
+    awaitDelay,
+    awaitWhileLoop,
     createDataStore,
-    createAssetManager,
     createQueue,
+    createAssetManager,
+    loadImage,
+    loadAudio,
+    replaceTextPlaceholders,
+    // Twitch Utils
+    formatChannelPoints,
     isCommand,
     isMsgFromAdmin,
-    throttle
+    // Animations
+    shakeAnimConfig,
+    overshootAnimConfig,
+    countdownTimerAnim,
+    textCharAnimConfig
   };
   function createQueue() {
     const queue = [];
@@ -35,7 +59,8 @@
       }
     }
     return {
-      addToQueue
+      addToQueue,
+      getLength: () => queue.length
     };
   }
   function generateRandomHexId(length = 8) {
@@ -249,6 +274,33 @@
     audioPoolSize: 5,
     preLoadAudio: true
   };
+  async function loadImage(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        resolve(img);
+      };
+      img.onerror = () => {
+        console.error(`Failed to load image: ${url}`);
+        reject(new Error(`Failed to load image: ${url}`));
+      };
+      img.src = url;
+    });
+  }
+  function loadAudio(url) {
+    return new Promise((resolve, reject) => {
+      const audio = new Audio(url);
+      audio.preload = "auto";
+      audio.oncanplaythrough = () => {
+        resolve(audio);
+      };
+      audio.onerror = () => {
+        console.error(`Failed to load audio: ${url}`);
+        reject(new Error(`Failed to load audio: ${url}`));
+      };
+      audio.load();
+    });
+  }
   async function createAssetManager(imageAssets, audioAssets, opts = {}) {
     const defaultOpts = {
       ...defaultAssetManageOpts,
@@ -258,17 +310,10 @@
     const audioAssetManager = /* @__PURE__ */ new Map();
     const loadPromises = [];
     Object.entries(imageAssets).forEach(([key, url]) => {
-      const loadPromise = new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-          imgAssetManager.set(key, img);
-          resolve();
-        };
-        img.onerror = () => {
-          console.error(`Failed to load image: ${url}`);
-          reject(new Error(`Failed to load image: ${url}`));
-        };
-        img.src = url;
+      const loadPromise = new Promise(async (resolve, reject) => {
+        const img = await loadImage(url);
+        imgAssetManager.set(key, img);
+        resolve();
       });
       loadPromises.push(loadPromise);
     });
@@ -303,18 +348,13 @@
       };
       let loaded = 0;
       for (let i = 0; i < poolSize; i++) {
-        const audio = new Audio(url);
-        audio.oncanplaythrough = () => {
+        loadAudio(url).then((audio) => {
+          pool.push(audio);
           loaded++;
           if (loaded === poolSize) {
-            resolve({
-              play,
-              pool
-            });
+            resolve({ play, pool });
           }
-        };
-        audio.load();
-        pool.push(audio);
+        });
       }
     });
   }
@@ -358,5 +398,163 @@
         callback();
       }
     };
+  }
+  function awaitDelay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+  function awaitWhileLoop(condition, delay, maxWaitTime) {
+    return new Promise(async (resolve) => {
+      if (!condition) {
+        resolve();
+        return;
+      }
+      let timeoutId;
+      let hasTimedOut = false;
+      if (maxWaitTime !== void 0) {
+        timeoutId = setTimeout(() => {
+          hasTimedOut = true;
+          resolve();
+        }, maxWaitTime);
+      }
+      while (condition() && !hasTimedOut) {
+        await awaitDelay(delay);
+      }
+      if (!hasTimedOut) {
+        if (timeoutId)
+          clearTimeout(timeoutId);
+        resolve();
+      }
+    });
+  }
+  function formatChannelPoints(value) {
+    if (value >= 1e3) {
+      return (value / 1e3).toFixed(0) + "k";
+    } else {
+      return value.toString();
+    }
+  }
+  function replaceTextPlaceholders(text, replacements) {
+    const placeholderPattern = new RegExp(`(${Object.keys(replacements).map(
+      (key) => key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    ).join("|")})`, "g");
+    const parts = text.split(placeholderPattern);
+    return parts.filter((part) => part !== "").map((part) => {
+      if (replacements[part]) {
+        return replacements[part];
+      } else {
+        return `<span>${part}</span>`;
+      }
+    }).join("");
+  }
+  function shakeAnimConfig(opts) {
+    const defaults = {
+      intensity: 5,
+      duration: 800,
+      easing: "easeInOutSine",
+      loops: 3,
+      delay: 0,
+      direction: "horizontal"
+    };
+    const config = { ...defaults, ...opts };
+    const translate = config.direction === "horizontal" ? "translateX" : "translateY";
+    return {
+      targets: config.selector,
+      [translate]: [
+        { value: 0, duration: 0 },
+        { value: config.intensity, duration: config.duration / (config.loops * 4) },
+        { value: -config.intensity, duration: config.duration / (config.loops * 2) },
+        { value: config.intensity, duration: config.duration / (config.loops * 2) },
+        { value: -config.intensity, duration: config.duration / (config.loops * 2) },
+        { value: 0, duration: config.duration / (config.loops * 4) }
+      ],
+      duration: config.duration,
+      easing: config.easing,
+      delay: config.delay,
+      loop: false
+    };
+  }
+  function overshootAnimConfig(opts) {
+    const defaults = {
+      duration: 800,
+      easing: "easeInOutSine",
+      delay: 0,
+      overshootDurationPercent: 0.6
+    };
+    const config = { ...defaults, ...opts };
+    return {
+      targets: config.selector,
+      [config.animeProperty]: [
+        {
+          value: config.start,
+          duration: 0
+        },
+        {
+          value: config.overshoot,
+          duration: config.duration * config.overshootDurationPercent,
+          easing: "easeInOutQuad"
+        },
+        {
+          value: config.end,
+          duration: config.duration * (1 - config.overshootDurationPercent),
+          easing: "easeInOutQuad"
+        }
+      ],
+      duration: config.duration,
+      easing: config.easing,
+      delay: config.delay,
+      loop: false
+    };
+  }
+  function countdownTimerAnim(opts) {
+    return {
+      duration: opts.seconds * 1e3,
+      begin: function(anim) {
+        this.timeLeft = Math.floor(opts.seconds);
+        this.urgent = false;
+      },
+      update: function(anim) {
+        const timeLeft = Math.floor((anim.duration - anim.currentTime) / 1e3);
+        if (opts?.urgencyCB && opts.urgencyTime && !this.urgent && timeLeft <= opts.urgencyTime) {
+          this.urgent = true;
+          opts.urgencyCB();
+        }
+        if (timeLeft !== this.timeLeft) {
+          this.timeLeft = timeLeft;
+          opts.timeUpd(timeLeft);
+        }
+      }
+    };
+  }
+  function textCharAnimConfig(opts) {
+    const defaults = {
+      duration: 800,
+      easing: "easeInOutSine",
+      delayRange: [0, 100]
+    };
+    const config = { ...defaults, ...opts };
+    let delays = [];
+    $(config.selector).each(function(index, element) {
+      const text = element.innerText.split("");
+      $(element).html(text.map((char, index2) => {
+        const displayClass = char.trim() === "" ? "d-inline" : "d-inline-block";
+        return `<span class="char-split ${displayClass}">${char}</span>`;
+      }).join(""));
+      delays = delays.concat(Array.from({ length: text.length }, () => {
+        const min = config.delayRange[0];
+        const max = config.delayRange[1];
+        return Math.random() * (max - min) + min;
+      }));
+    });
+    return {
+      targets: `${config.selector} .char-split`,
+      [config.animeProperty]: [config.start, config.end],
+      delay: function(el, i) {
+        const delay = delays[i];
+        return delay;
+      },
+      duration: config.duration,
+      easing: config.easing
+    };
+    ;
   }
 })();
