@@ -16,6 +16,7 @@
     formatChannelPoints,
     isCommand,
     isMsgFromAdmin,
+    getTwitchUser,
     // Animations
     shakeAnimConfig,
     overshootAnimConfig,
@@ -39,6 +40,7 @@
     formatChannelPoints,
     isCommand,
     isMsgFromAdmin,
+    getTwitchUser,
     // Animations
     shakeAnimConfig,
     overshootAnimConfig,
@@ -439,12 +441,29 @@
     ).join("|")})`, "g");
     const parts = text.split(placeholderPattern);
     return parts.filter((part) => part !== "").map((part) => {
-      if (replacements[part]) {
+      if (part in replacements) {
         return replacements[part];
       } else {
         return `<span>${part}</span>`;
       }
     }).join("");
+  }
+  async function getTwitchUser({ userLogin, token, dev = false }) {
+    const requestUrl = dev ? "http://localhost:3000" : "https://charmingstreams.com";
+    const result = await fetch(`${requestUrl}/api/twitch/get-user?login=${userLogin}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        token
+      })
+    });
+    if (!result.ok) {
+      console.error("Failed to fetch Twitch user:", result.status, result.statusText);
+      return null;
+    }
+    return await result.json();
   }
   function shakeAnimConfig(opts) {
     const defaults = {
