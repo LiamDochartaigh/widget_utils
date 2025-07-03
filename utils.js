@@ -374,7 +374,7 @@
     modControl,
     modWhitelist
   }) {
-    if (obj.event.data.displayName.toLowerCase() === obj.event.data.displayName.toLocaleLowerCase())
+    if (obj.event.data.channel.toLowerCase() === obj.event.data.displayName.toLocaleLowerCase())
       return true;
     if (viewerControl)
       return true;
