@@ -17,6 +17,8 @@
     isCommand,
     isMsgFromAdmin,
     getTwitchUser,
+    getPronouns,
+    getUserPronouns,
     // Animations
     shakeAnimConfig,
     overshootAnimConfig,
@@ -41,6 +43,8 @@
     isCommand,
     isMsgFromAdmin,
     getTwitchUser,
+    getPronouns,
+    getUserPronouns,
     // Animations
     shakeAnimConfig,
     overshootAnimConfig,
@@ -464,6 +468,25 @@
       return null;
     }
     return await result.json();
+  }
+  async function getPronouns() {
+    const result = await fetch("https://pronouns.alejo.io/api/pronouns");
+    if (!result.ok) {
+      console.error("Failed to fetch pronouns:", result.status, result.statusText);
+      return null;
+    }
+    const allPronouns = await result.json();
+    return allPronouns;
+  }
+  async function getUserPronouns(username) {
+    const lowercaseUsername = username.toLowerCase();
+    const result = await fetch(`https://pronouns.alejo.io/api/users/${lowercaseUsername}`);
+    if (!result.ok) {
+      console.error("Failed to fetch users pronouns:", result.status, result.statusText);
+      return null;
+    }
+    const pronouns = await result.json();
+    return pronouns;
   }
   function shakeAnimConfig(opts) {
     const defaults = {
