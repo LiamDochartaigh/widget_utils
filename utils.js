@@ -18,6 +18,7 @@
     isCommand,
     isMsgFromAdmin,
     getTwitchUser,
+    getCustomRewards,
     getPronouns,
     getUserPronouns,
     // Animations
@@ -45,6 +46,7 @@
     isCommand,
     isMsgFromAdmin,
     getTwitchUser,
+    getCustomRewards,
     getPronouns,
     getUserPronouns,
     // Animations
@@ -714,6 +716,23 @@
     });
     if (!result.ok) {
       console.error("Failed to fetch Twitch user:", result.status, result.statusText);
+      return null;
+    }
+    return await result.json();
+  }
+  async function getCustomRewards({ token, dev = false }) {
+    const requestUrl = dev ? "http://localhost:3000" : "https://charmingstreams.com";
+    const result = await fetch(`${requestUrl}/api/twitch/get-custom-rewards`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        token
+      })
+    });
+    if (!result.ok) {
+      console.error("Failed to fetch customer rewards: ", result.status, result.statusText);
       return null;
     }
     return await result.json();
