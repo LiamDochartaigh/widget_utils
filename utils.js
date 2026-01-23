@@ -21,6 +21,8 @@
     getCustomRewards,
     getPronouns,
     getUserPronouns,
+    // Third Party Utils
+    charmingKofiWS,
     // Animations
     shakeAnimConfig,
     overshootAnimConfig,
@@ -49,6 +51,8 @@
     getCustomRewards,
     getPronouns,
     getUserPronouns,
+    // Third Party Utils
+    charmingKofiWS,
     // Animations
     shakeAnimConfig,
     overshootAnimConfig,
@@ -755,6 +759,70 @@
     }
     const pronouns = await result.json();
     return pronouns;
+  }
+  function charmingKofiWS(debug = false) {
+    let ws;
+    let pongTimeout;
+    let pingInterval;
+    let onEventCb;
+    const onEvent = (cb) => {
+      onEventCb = cb;
+    };
+    const connect = ({ dev, query }) => {
+      const queryString = new URLSearchParams(query).toString();
+      const wsURL = dev ? "ws://localhost:3000/kofi-ws" : "https://charmingstreams.com/kofi-ws";
+      ws = new WebSocket(`${wsURL}?${queryString}`);
+      ws.onopen = () => {
+        if (debug) {
+          console.log("Charming WS Connected");
+        }
+        heartbeat();
+      };
+      ws.onmessage = (event) => {
+        if (debug) {
+          console.log("message received ", event.data);
+        }
+        if (event.data === "ping") {
+          ws.send("pong");
+        } else if (event.data === "pong") {
+          clearTimeout(pongTimeout);
+        } else {
+          onEventCb(event.data);
+        }
+      };
+      ws.onclose = (event) => {
+        if (debug) {
+          console.log("Charming WS closed");
+        }
+        if (event.code !== 4401) {
+          stopHeartbeat();
+          const reconnect = () => {
+            connect({ dev, query });
+          };
+          setTimeout(reconnect, 4e3);
+        }
+      };
+    };
+    function stopHeartbeat() {
+      clearInterval(pingInterval);
+      clearTimeout(pongTimeout);
+    }
+    function heartbeat() {
+      pingInterval = setInterval(() => {
+        ws.send("ping");
+        pongTimeout = setTimeout(() => {
+          if (debug) {
+            console.log("Server unresponsive, reconnecting");
+          }
+          ws.close();
+        }, 5e3);
+      }, 1e4);
+    }
+    ;
+    return {
+      connect,
+      onEvent
+    };
   }
   function shakeAnimConfig(opts) {
     const defaults = {
