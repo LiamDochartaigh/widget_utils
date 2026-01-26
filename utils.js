@@ -787,7 +787,7 @@
         } else if (event.data === "pong") {
           clearTimeout(pongTimeout);
         } else {
-          onEventCb(event.data);
+          onEventCb(JSON.parse(event.data));
         }
       };
       ws.onclose = (event) => {
