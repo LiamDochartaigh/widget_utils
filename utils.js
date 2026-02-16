@@ -11,14 +11,20 @@
     createQueue,
     createAssetManager,
     loadImage,
+    pixelateImage,
     loadAudio,
     replaceTextPlaceholders,
+    logger,
     // Twitch Utils
     formatChannelPoints,
     isCommand,
     isMsgFromAdmin,
     getTwitchUser,
     getCustomRewards,
+    getStreams,
+    getChannelInfo,
+    getTwitchGames,
+    getUserChatColor,
     getPronouns,
     getUserPronouns,
     // Third Party Utils
@@ -41,14 +47,20 @@
     createQueue,
     createAssetManager,
     loadImage,
+    pixelateImage,
     loadAudio,
     replaceTextPlaceholders,
+    logger,
     // Twitch Utils
     formatChannelPoints,
     isCommand,
     isMsgFromAdmin,
     getTwitchUser,
     getCustomRewards,
+    getStreams,
+    getChannelInfo,
+    getTwitchGames,
+    getUserChatColor,
     getPronouns,
     getUserPronouns,
     // Third Party Utils
@@ -521,6 +533,38 @@
       img.src = url;
     });
   }
+  async function pixelateImage(url, pixelSize = 12) {
+    const untaintedImage = new Image();
+    untaintedImage.crossOrigin = "anonymous";
+    await new Promise((resolve, reject) => {
+      untaintedImage.onload = () => {
+        resolve(untaintedImage);
+      };
+      untaintedImage.onerror = () => {
+        console.error(`Failed to load image: ${url}`);
+        reject(new Error(`Failed to load image: ${url}`));
+      };
+      untaintedImage.src = url;
+    });
+    const shadow = document.createElement("canvas");
+    const ctx = shadow.getContext("2d");
+    shadow.width = untaintedImage.width;
+    shadow.height = untaintedImage.height;
+    ctx.drawImage(untaintedImage, 0, 0);
+    for (let y = 0; y < shadow.height; y += pixelSize) {
+      for (let x = 0; x < shadow.width; x += pixelSize) {
+        const pixel = ctx.getImageData(x, y, 1, 1).data;
+        const [r, g, b, a] = pixel;
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+        ctx.fillRect(x, y, pixelSize, pixelSize);
+      }
+    }
+    const pixelatedURL = shadow.toDataURL("image/png");
+    const outputImg = document.createElement("img");
+    outputImg.src = pixelatedURL;
+    outputImg.alt = "Pixelated result";
+    return outputImg;
+  }
   function loadVideo(url) {
     return new Promise((resolve, reject) => {
       const video = document.createElement("video");
@@ -687,9 +731,9 @@
       }
     });
   }
-  function formatChannelPoints(value) {
+  function formatChannelPoints(value, decimals = 0) {
     if (value >= 1e3) {
-      return (value / 1e3).toFixed(0) + "k";
+      return (value / 1e3).toFixed(decimals) + "k";
     } else {
       return value.toString();
     }
@@ -706,6 +750,33 @@
         return `<span>${part}</span>`;
       }
     }).join("");
+  }
+  function logger({ debug = true }) {
+    if (debug) {
+      $("body").append(`<div style="position: absolute; top: 0; z-index: 20; color: red; font-size: 12px;" class="custom_charming_logger"></div>`);
+    }
+    function log(txt, ...optionalParams) {
+      if (debug) {
+        if (optionalParams.length) {
+          console.log(txt, ...optionalParams);
+        } else
+          console.log(txt);
+      }
+    }
+    function error(txt, ...optionalParams) {
+      if (debug) {
+        if (optionalParams.length) {
+          console.error(txt, ...optionalParams);
+        } else
+          console.error(txt);
+        $(".custom_charming_logger").empty();
+        $(".custom_charming_logger").text(txt);
+      }
+    }
+    return {
+      log,
+      error
+    };
   }
   async function getTwitchUser({ userLogin, token, dev = false }) {
     const requestUrl = dev ? "http://localhost:3000" : "https://charmingstreams.com";
@@ -737,6 +808,78 @@
     });
     if (!result.ok) {
       console.error("Failed to fetch customer rewards: ", result.status, result.statusText);
+      return null;
+    }
+    return await result.json();
+  }
+  async function getStreams({ token, logins, dev = false }) {
+    const requestUrl = dev ? "http://localhost:3000" : "https://charmingstreams.com";
+    const result = await fetch(`${requestUrl}/api/twitch/get-streams`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        token,
+        logins
+      })
+    });
+    if (!result.ok) {
+      console.error("Failed to fetch streams : ", result.status, result.statusText);
+      return null;
+    }
+    return await result.json();
+  }
+  async function getChannelInfo({ token, broadcaster_ids, dev = false }) {
+    const requestUrl = dev ? "http://localhost:3000" : "https://charmingstreams.com";
+    const result = await fetch(`${requestUrl}/api/twitch/get-channel-info`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        token,
+        broadcaster_ids
+      })
+    });
+    if (!result.ok) {
+      console.error("Failed to fetch channel info : ", result.status, result.statusText);
+      return null;
+    }
+    return await result.json();
+  }
+  async function getTwitchGames({ gameIds, token, dev = false }) {
+    const requestUrl = dev ? "http://localhost:3000" : "https://charmingstreams.com";
+    const result = await fetch(`${requestUrl}/api/twitch/get-games`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        token,
+        ids: gameIds
+      })
+    });
+    if (!result.ok) {
+      console.error("Failed to fetch Twitch games:", result.status, result.statusText);
+      return null;
+    }
+    return await result.json();
+  }
+  async function getUserChatColor({ token, user_ids, dev = false }) {
+    const requestUrl = dev ? "http://localhost:3000" : "https://charmingstreams.com";
+    const result = await fetch(`${requestUrl}/api/twitch/get-user-chat-color`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        token,
+        user_ids
+      })
+    });
+    if (!result.ok) {
+      console.error("Failed to fetch users chat color : ", result.status, result.statusText);
       return null;
     }
     return await result.json();
