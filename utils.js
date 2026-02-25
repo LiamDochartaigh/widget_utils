@@ -72,10 +72,16 @@
     textCharAnimConfig
   };
   function createQueue() {
-    const queue = [];
-    async function addToQueue(queueFunc) {
+    let queue = [];
+    async function addToQueue(queueFunc, givePriority = false) {
       if (queue.length > 0) {
-        queue.push(queueFunc);
+        if (givePriority) {
+          const firstPart = queue.slice(0, 1).concat([queueFunc]);
+          const secondPart = queue.slice(1);
+          queue = firstPart.concat(secondPart);
+        } else {
+          queue.push(queueFunc);
+        }
         return;
       }
       queue.push(queueFunc);
