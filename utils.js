@@ -21,6 +21,7 @@
     isMsgFromAdmin,
     getTwitchUser,
     getCustomRewards,
+    getChannelStreamSchedule,
     getStreams,
     getChannelInfo,
     getTwitchGames,
@@ -57,6 +58,7 @@
     isMsgFromAdmin,
     getTwitchUser,
     getCustomRewards,
+    getChannelStreamSchedule,
     getStreams,
     getChannelInfo,
     getTwitchGames,
@@ -814,6 +816,24 @@
     });
     if (!result.ok) {
       console.error("Failed to fetch customer rewards: ", result.status, result.statusText);
+      return null;
+    }
+    return await result.json();
+  }
+  async function getChannelStreamSchedule({ token, broadcaster_id, dev = false }) {
+    const requestUrl = dev ? "http://localhost:3000" : "https://charmingstreams.com";
+    const result = await fetch(`${requestUrl}/api/twitch/get-channel-stream-schedule`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        token,
+        broadcaster_id
+      })
+    });
+    if (!result.ok) {
+      console.error("Failed to fetch channel stream schedule : ", result.status, result.statusText);
       return null;
     }
     return await result.json();
